@@ -554,11 +554,7 @@ public class PreparedStatementTest extends CCMTestsSupport {
 
   @Test(groups = "short", expectedExceptions = InvalidQueryException.class)
   public void should_fail_when_prepared_on_another_cluster() throws Exception {
-    Cluster otherCluster =
-        Cluster.builder()
-            .addContactPoints(getContactPoints())
-            .withPort(ccm().getBinaryPort())
-            .build();
+    Cluster otherCluster = createClusterBuilder().build();
     try {
       PreparedStatement pst =
           otherCluster.connect().prepare("select * from system.peers where inet = ?");
@@ -585,9 +581,7 @@ public class PreparedStatementTest extends CCMTestsSupport {
   public void should_not_allow_unbound_value_on_bound_statement_when_protocol_lesser_than_v4() {
     Cluster cluster =
         register(
-            Cluster.builder()
-                .addContactPoints(getContactPoints())
-                .withPort(ccm().getBinaryPort())
+            createClusterBuilder()
                 .withProtocolVersion(ccm().getProtocolVersion(ProtocolVersion.V3))
                 .build());
     Session session = cluster.connect();
@@ -600,6 +594,9 @@ public class PreparedStatementTest extends CCMTestsSupport {
       fail("Should not have executed statement with UNSET values in protocol V3");
     } catch (IllegalStateException e) {
       assertThat(e.getMessage()).contains("Unset value at index 1");
+    } finally {
+      session.close();
+      cluster.close();
     }
   }
 
@@ -617,9 +614,7 @@ public class PreparedStatementTest extends CCMTestsSupport {
   public void should_not_allow_unbound_value_on_batch_statement_when_protocol_lesser_than_v4() {
     Cluster cluster =
         register(
-            Cluster.builder()
-                .addContactPoints(getContactPoints())
-                .withPort(ccm().getBinaryPort())
+            createClusterBuilder()
                 .withProtocolVersion(ccm().getProtocolVersion(ProtocolVersion.V3))
                 .build());
     Session session = cluster.connect();
@@ -633,6 +628,9 @@ public class PreparedStatementTest extends CCMTestsSupport {
       fail("Should not have executed statement with UNSET values in protocol V3");
     } catch (IllegalStateException e) {
       assertThat(e.getMessage()).contains("Unset value at index 1");
+    } finally {
+      session.close();
+      cluster.close();
     }
   }
 

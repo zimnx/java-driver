@@ -5,6 +5,14 @@
   3.x versions get published.
 -->
 
+### 3.11.0
+
+- [improvement] JAVA-2705: Remove protocol v5 beta status, add v6-beta.
+- [bug] JAVA-2923: Detect and use Guava's new HostAndPort.getHost method.
+- [bug] JAVA-2922: Switch to modern framing format inside a channel handler.
+- [bug] JAVA-2924: Consider protocol version unsupported when server requires USE_BETA flag for it.
+
+
 ### 3.10.2
 
 - [bug] JAVA-2860: Avoid NPE if channel initialization crashes.
@@ -16,8 +24,9 @@
 
 ### 3.10.0
 
-- [improvement] JAVA-2676: Don't reschedule flusher after empty runs
-- [new feature] JAVA-2772: Support new protocol v5 message format
+- [improvement] JAVA-2676: Don't reschedule flusher after empty runs.
+- [new feature] JAVA-2772: Support new protocol v5 message format.
+
 
 ### 3.9.0
 

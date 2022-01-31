@@ -542,11 +542,6 @@ class Connection {
     return new AsyncFunction<Message.Response, Void>() {
       @Override
       public ListenableFuture<Void> apply(Message.Response response) throws Exception {
-
-        if (protocolVersion.compareTo(ProtocolVersion.V5) >= 0 && response.type != ERROR) {
-          switchToV5Framing();
-        }
-
         switch (response.type) {
           case READY:
             return checkClusterName(protocolVersion, initExecutor);
@@ -585,6 +580,7 @@ class Connection {
               case V3:
               case V4:
               case V5:
+              case V6:
                 return authenticateV2(authenticator, protocolVersion, initExecutor);
               default:
                 throw defunct(protocolVersion.unsupported());
@@ -767,7 +763,9 @@ class Connection {
     // Testing for a specific string is a tad fragile but well, we don't have much choice
     // C* 2.1 reports a server error instead of protocol error, see CASSANDRA-9451
     return (error.code == ExceptionCode.PROTOCOL_ERROR || error.code == ExceptionCode.SERVER_ERROR)
-        && error.message.contains("Invalid or unsupported protocol version");
+        && (error.message.contains("Invalid or unsupported protocol version")
+            // JAVA-2924: server is behind driver and considers the proposed version as beta
+            || error.message.contains("Beta version of the protocol used"));
   }
 
   private UnsupportedProtocolVersionException unsupportedProtocolVersionException(
@@ -1946,6 +1944,8 @@ class Connection {
         new Message.ProtocolEncoder(ProtocolVersion.V4);
     private static final Message.ProtocolEncoder messageEncoderV5 =
         new Message.ProtocolEncoder(ProtocolVersion.V5);
+    private static final Message.ProtocolEncoder messageEncoderV6 =
+        new Message.ProtocolEncoder(ProtocolVersion.V6);
     private static final Frame.Encoder frameEncoder = new Frame.Encoder();
 
     private final ProtocolVersion protocolVersion;
@@ -2012,6 +2012,8 @@ class Connection {
       pipeline.addLast("frameDecoder", new Frame.Decoder());
       pipeline.addLast("frameEncoder", frameEncoder);
 
+      pipeline.addLast("framingFormatHandler", new FramingFormatHandler(connection.factory));
+
       if (compressor != null
           // Frame-level compression is only done in legacy protocol versions. In V5 and above, it
           // happens at a higher level ("segment" that groups multiple frames), so never install
@@ -2043,43 +2045,12 @@ class Connection {
           return messageEncoderV4;
         case V5:
           return messageEncoderV5;
+        case V6:
+          return messageEncoderV6;
         default:
           throw new DriverInternalError("Unsupported protocol version " + protocolVersion);
       }
     }
-  }
-
-  /**
-   * Rearranges the pipeline to deal with the new framing structure in protocol v5 and above. This
-   * has to be done manually, because it only happens once we've confirmed that the server supports
-   * v5.
-   */
-  void switchToV5Framing() {
-    assert factory.protocolVersion.compareTo(ProtocolVersion.V5) >= 0;
-
-    // We want to do this on the event loop, to make sure it doesn't race with incoming requests
-    assert channel.eventLoop().inEventLoop();
-
-    ChannelPipeline pipeline = channel.pipeline();
-    SegmentCodec segmentCodec =
-        new SegmentCodec(
-            channel.alloc(), factory.configuration.getProtocolOptions().getCompression());
-
-    // Outbound: "message -> segment -> bytes" instead of "message -> frame -> bytes"
-    Message.ProtocolEncoder requestEncoder =
-        (Message.ProtocolEncoder) pipeline.get("messageEncoder");
-    pipeline.replace(
-        "messageEncoder",
-        "messageToSegmentEncoder",
-        new MessageToSegmentEncoder(channel.alloc(), requestEncoder));
-    pipeline.replace(
-        "frameEncoder", "segmentToBytesEncoder", new SegmentToBytesEncoder(segmentCodec));
-
-    // Inbound: "frame <- segment <- bytes" instead of "frame <- bytes"
-    pipeline.replace(
-        "frameDecoder", "bytesToSegmentDecoder", new BytesToSegmentDecoder(segmentCodec));
-    pipeline.addAfter(
-        "bytesToSegmentDecoder", "segmentToFrameDecoder", new SegmentToFrameDecoder());
   }
 
   /** A component that "owns" a connection, and should be notified when it dies. */

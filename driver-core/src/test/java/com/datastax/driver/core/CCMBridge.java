@@ -42,13 +42,17 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -388,6 +392,24 @@ public class CCMBridge implements CCMAccess {
   @Override
   public int[] getNodeCount() {
     return Arrays.copyOf(nodes, nodes.length);
+  }
+
+  @Override
+  public List<InetAddress> getContactPoints() {
+    List<InetAddress> contactPoints = new ArrayList<InetAddress>();
+    int n = 1;
+    for (int dc = 1; dc <= nodes.length; dc++) {
+      int nodesInDc = nodes[dc - 1];
+      for (int i = 0; i < nodesInDc; i++) {
+        try {
+          contactPoints.add(InetAddress.getByName(ipOfNode(n)));
+        } catch (UnknownHostException e) {
+          Throwables.propagate(e);
+        }
+        n++;
+      }
+    }
+    return contactPoints;
   }
 
   protected String ipOfNode(int n) {
@@ -822,8 +844,10 @@ public class CCMBridge implements CCMAccess {
       return ProtocolVersion.V2;
     } else if (version.compareTo(VersionNumber.parse("2.2")) < 0) {
       return ProtocolVersion.V3;
-    } else {
+    } else if (version.compareTo(VersionNumber.parse("4.0")) < 0) {
       return ProtocolVersion.V4;
+    } else {
+      return ProtocolVersion.V5;
     }
   }
 
@@ -927,6 +951,7 @@ public class CCMBridge implements CCMAccess {
     /** Enables SSL encryption. */
     public Builder withSSL() {
       cassandraConfiguration.put("client_encryption_options.enabled", "true");
+      cassandraConfiguration.put("client_encryption_options.optional", "false");
       cassandraConfiguration.put(
           "client_encryption_options.keystore", DEFAULT_SERVER_KEYSTORE_FILE.getAbsolutePath());
       cassandraConfiguration.put(

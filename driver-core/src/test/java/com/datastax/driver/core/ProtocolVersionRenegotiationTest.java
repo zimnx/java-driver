@@ -22,8 +22,8 @@
 package com.datastax.driver.core;
 
 import static com.datastax.driver.core.ProtocolVersion.V1;
-import static com.datastax.driver.core.ProtocolVersion.V4;
 import static com.datastax.driver.core.ProtocolVersion.V5;
+import static com.datastax.driver.core.ProtocolVersion.V6;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.datastax.driver.core.exceptions.UnsupportedProtocolVersionException;
@@ -32,6 +32,7 @@ import org.testng.SkipException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+@CCMConfig(createCluster = false)
 public class ProtocolVersionRenegotiationTest extends CCMTestsSupport {
 
   private ProtocolVersion protocolVersion;
@@ -43,7 +44,7 @@ public class ProtocolVersionRenegotiationTest extends CCMTestsSupport {
 
   /** @jira_ticket JAVA-1367 */
   @Test(groups = "short")
-  public void should_succeed_when_version_provided_and_matches() throws Exception {
+  public void should_succeed_when_version_provided_and_matches() {
     Cluster cluster = connectWithVersion(protocolVersion);
     assertThat(actualProtocolVersion(cluster)).isEqualTo(protocolVersion);
   }
@@ -51,7 +52,7 @@ public class ProtocolVersionRenegotiationTest extends CCMTestsSupport {
   /** @jira_ticket JAVA-1367 */
   @Test(groups = "short", enabled = false /* @IntegrationTestDisabledCassandra3Failure */)
   @CassandraVersion("3.8")
-  public void should_fail_when_version_provided_and_too_low_3_8_plus() throws Exception {
+  public void should_fail_when_version_provided_and_too_low_3_8_plus() {
     UnsupportedProtocolVersionException e = connectWithUnsupportedVersion(V1);
     assertThat(e.getUnsupportedVersion()).isEqualTo(V1);
     // post-CASSANDRA-11464: server replies with client's version
@@ -60,30 +61,31 @@ public class ProtocolVersionRenegotiationTest extends CCMTestsSupport {
 
   /** @jira_ticket JAVA-1367 */
   @Test(groups = "short")
-  public void should_fail_when_version_provided_and_too_high() throws Exception {
-    if (ccm().getCassandraVersion().compareTo(VersionNumber.parse("2.2")) >= 0) {
-      throw new SkipException("Server supports protocol V4");
+  public void should_fail_when_version_provided_and_too_high() {
+    if (ccm().getCassandraVersion().compareTo(VersionNumber.parse("3.10")) >= 0) {
+      throw new SkipException("Server supports protocol V5");
     }
-    UnsupportedProtocolVersionException e = connectWithUnsupportedVersion(V4);
-    assertThat(e.getUnsupportedVersion()).isEqualTo(V4);
-    // pre-CASSANDRA-11464: server replies with its own version
-    assertThat(e.getServerVersion()).isEqualTo(protocolVersion);
+    UnsupportedProtocolVersionException e = connectWithUnsupportedVersion(V5);
+    assertThat(e.getUnsupportedVersion()).isEqualTo(V5);
+    // see CASSANDRA-11464: for C* < 3.0.9 and 3.8, server replies with its own version;
+    // otherwise it replies with the client's version.
+    assertThat(e.getServerVersion()).isIn(V5, protocolVersion);
   }
 
   /** @jira_ticket JAVA-1367 */
   @Test(groups = "short")
-  public void should_fail_when_beta_allowed_and_too_high() throws Exception {
-    if (ccm().getCassandraVersion().compareTo(VersionNumber.parse("3.10")) >= 0) {
-      throw new SkipException("Server supports protocol protocol V5 beta");
+  public void should_fail_when_beta_allowed_and_too_high() {
+    if (ccm().getCassandraVersion().compareTo(VersionNumber.parse("4.0.0")) >= 0) {
+      throw new SkipException("Server supports protocol protocol V6 beta");
     }
     UnsupportedProtocolVersionException e = connectWithUnsupportedBetaVersion();
-    assertThat(e.getUnsupportedVersion()).isEqualTo(V5);
+    assertThat(e.getUnsupportedVersion()).isEqualTo(V6);
   }
 
   /** @jira_ticket JAVA-1367 */
   @Test(groups = "short", enabled = false /* @IntegrationTestDisabledCassandra3Failure */)
   @CCMConfig(version = "2.1.16", createCluster = false)
-  public void should_negotiate_when_no_version_provided() throws Exception {
+  public void should_negotiate_when_no_version_provided() {
     if (protocolVersion.compareTo(ProtocolVersion.NEWEST_SUPPORTED) >= 0) {
       throw new SkipException("Server supports newest protocol version driver supports");
     }
