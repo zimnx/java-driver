@@ -298,6 +298,9 @@ class HostConnectionPool implements Connection.Owner {
     connectionsPerShard = coreSize / shardsCount + (coreSize % shardsCount > 0 ? 1 : 0);
     maxConnectionsPerShard =
         maxConnections / shardsCount + (maxConnections % shardsCount > 0 ? 1 : 0);
+    System.out.printf(
+        "connectionsPerShard %d, maxConnectionPerShard %d, shardCount %d",
+        connectionsPerShard, maxConnectionsPerShard, shardsCount);
     int toCreate = shardsCount * connectionsPerShard;
 
     this.connections = new List[shardsCount];
@@ -317,9 +320,9 @@ class HostConnectionPool implements Connection.Owner {
     final List<ListenableFuture<Void>> connectionFutures =
         Lists.newArrayListWithCapacity(2 * toCreate);
 
-    toCreate -= 1;
-    connections.add(reusedConnection);
-    connectionFutures.add(MoreFutures.VOID_SUCCESS);
+    //    toCreate -= 1;
+    //    connections.add(reusedConnection);
+    //    connectionFutures.add(MoreFutures.VOID_SUCCESS);
 
     List<Connection> newConnections = manager.connectionFactory().newConnections(this, toCreate);
     connections.addAll(newConnections);
@@ -336,13 +339,13 @@ class HostConnectionPool implements Connection.Owner {
           shardConnectionIndex = 0;
           shardId++;
         }
-        if (shardId == reusedConnection.shardId() && shardConnectionIndex == 0) {
-          shardConnectionIndex++;
-          if (shardConnectionIndex == connectionsPerShard) {
-            shardConnectionIndex = 0;
-            shardId++;
-          }
-        }
+        //        if (shardId == reusedConnection.shardId() && shardConnectionIndex == 0) {
+        //          shardConnectionIndex++;
+        //          if (shardConnectionIndex == connectionsPerShard) {
+        //            shardConnectionIndex = 0;
+        //            shardId++;
+        //          }
+        //        }
 
         ListenableFuture<Void> connectionFuture = connection.initAsync(shardId, serverPort);
         connectionFutures.add(handleErrors(connectionFuture, initExecutor));

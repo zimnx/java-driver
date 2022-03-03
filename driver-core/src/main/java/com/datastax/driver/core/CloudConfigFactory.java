@@ -106,21 +106,16 @@ class CloudConfigFactory {
         createSslContext(
             keyStoreInputStream, keyStorePassword, trustStoreInputStream, trustStorePassword);
     URL metadataServiceUrl = getMetadataServiceUrl(configJson);
-    JsonNode proxyMetadataJson;
-    BufferedReader proxyMetadata = null;
-    try {
-      proxyMetadata = fetchProxyMetadata(metadataServiceUrl, sslContext);
-      proxyMetadataJson = mapper.readTree(proxyMetadata);
-    } finally {
-      if (proxyMetadata != null) {
-        proxyMetadata.close();
-      }
-    }
-    InetSocketAddress sniProxyAddress = getSniProxyAddress(proxyMetadataJson);
-    List<EndPoint> endPoints = getEndPoints(proxyMetadataJson, sniProxyAddress);
-    String localDatacenter = getLocalDatacenter(proxyMetadataJson);
+
+    InetSocketAddress sniProxyAddress =
+        InetSocketAddress.createUnresolved(
+            metadataServiceUrl.getHost(), metadataServiceUrl.getPort());
+    List<EndPoint> endPoints = new ArrayList<EndPoint>();
+    endPoints.add(new SniEndPoint(sniProxyAddress, sniProxyAddress.getHostName()));
+    String localDatacenter = "eu-west-1";
     SSLOptions sslOptions = getSSLOptions(sslContext);
-    AuthProvider authProvider = getAuthProvider(configJson);
+    String pass = "cassandra";
+    AuthProvider authProvider = new PlainTextAuthProvider(pass, pass);
     return new CloudConfig(sniProxyAddress, endPoints, localDatacenter, sslOptions, authProvider);
   }
 

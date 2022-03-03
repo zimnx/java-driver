@@ -379,7 +379,7 @@ class ControlConnection implements Connection.Owner {
       Cluster.Manager cluster)
       throws ConnectionException, BusyConnectionException, ExecutionException,
           InterruptedException {
-    Host host = cluster.metadata.getHost(connection.endPoint);
+    Host host = cluster.metadata.getAllHosts().iterator().next();
     // Neither host, nor it's version should be null. But instead of dying if there is a race or
     // something, we can kind of try to infer
     // a Cassandra version from the protocol version (this is not full proof, we can have the
@@ -763,6 +763,7 @@ class ControlConnection implements Connection.Owner {
           String.format(
               "system.local is empty on %s, this should not happen", connection.endPoint));
     }
+
     String clusterName = localRow.getString("cluster_name");
     if (clusterName != null) cluster.metadata.clusterName = clusterName;
 
@@ -788,15 +789,17 @@ class ControlConnection implements Connection.Owner {
           connection.endPoint);
     } else {
       updateInfo(controlHost, localRow, cluster, isInitialConnection);
-      if (metadataEnabled && factory != null) {
-        Set<String> tokensStr = localRow.getSet("tokens", String.class);
-        if (!tokensStr.isEmpty()) {
-          Set<Token> tokens = toTokens(factory, tokensStr);
-          tokenMap.put(controlHost, tokens);
-        }
-      }
+      controlHost.setHostId(UUID.randomUUID());
+
+      //      if (metadataEnabled && factory != null) {
+      //        Set<String> tokensStr = localRow.getSet("tokens", String.class);
+      //        if (!tokensStr.isEmpty()) {
+      //          Set<Token> tokens = toTokens(factory, tokensStr);
+      //          tokenMap.put(controlHost, tokens);
+      //        }
+      //      }
       if (isInitialConnection) {
-        cluster.metadata.addIfAbsent(controlHost);
+        //        cluster.metadata.addIfAbsent(controlHost);
       }
     }
 
@@ -814,7 +817,13 @@ class ControlConnection implements Connection.Owner {
     List<UUID> hostIds = new ArrayList<UUID>();
     List<UUID> schemaVersions = new ArrayList<UUID>();
 
+    List<Row> localAndPeerRows = new ArrayList<Row>();
+    localAndPeerRows.add(localRow);
     for (Row row : peersFuture.get()) {
+      localAndPeerRows.add(row);
+    }
+
+    for (Row row : localAndPeerRows) {
       if (!isValidPeer(row, logInvalidPeers)) continue;
 
       EndPoint endPoint = endPointForPeerHost(row, connection.endPoint, cluster);
@@ -841,7 +850,9 @@ class ControlConnection implements Connection.Owner {
       int broadcastPort =
           row.getColumnDefinitions().contains("peer_port") ? row.getInt("peer_port") : 0;
       InetSocketAddress broadcastAddress =
-          new InetSocketAddress(row.getInet("peer"), broadcastPort);
+          row.getColumnDefinitions().contains("peer")
+              ? new InetSocketAddress(row.getInet("peer"), broadcastPort)
+              : null;
 
       broadcastAddresses.add(broadcastAddress);
       if (metadataEnabled && factory != null) {

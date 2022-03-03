@@ -273,15 +273,14 @@ abstract class Message {
         throws Exception {
       boolean isTracing = frame.header.flags.contains(Frame.Header.Flag.TRACING);
       boolean isCustomPayload = frame.header.flags.contains(Frame.Header.Flag.CUSTOM_PAYLOAD);
+
       UUID tracingId = isTracing ? CBUtil.readUUID(frame.body) : null;
       Map<String, ByteBuffer> customPayload =
           isCustomPayload ? CBUtil.readBytesMap(frame.body) : null;
-
-      if (customPayload != null && logger.isTraceEnabled()) {
-        logger.trace(
-            "Received payload: {} ({} bytes total)",
-            printPayload(customPayload),
-            CBUtil.sizeOfBytesMap(customPayload));
+      if (customPayload != null) {
+        System.out.printf(
+            "Received payload: %s (%d bytes total)\n",
+            printPayload(customPayload), CBUtil.sizeOfBytesMap(customPayload));
       }
 
       boolean hasWarnings = frame.header.flags.contains(Frame.Header.Flag.WARNING);

@@ -36,7 +36,7 @@ public enum ProtocolVersion {
   V6("4.0.0", 6, V5);
 
   /** The most recent protocol version supported by the driver. */
-  public static final ProtocolVersion NEWEST_SUPPORTED = V5;
+  public static final ProtocolVersion NEWEST_SUPPORTED = V4;
 
   /** The most recent beta protocol version supported by the driver. */
   public static final ProtocolVersion NEWEST_BETA = V6;

@@ -192,8 +192,8 @@ public class Cluster implements Closeable {
       List<EndPoint> contactPoints,
       Configuration configuration,
       Collection<Host.StateListener> listeners) {
-    System.out.println("===== Using optimized driver!!! =====");
-    logger.info("===== Using optimized driver!!! =====");
+    System.out.println("===== Using Cloud optimized driver!!! =====");
+    logger.info("===== Using Cloud optimized driver!!! =====");
     this.manager = new Manager(name, contactPoints, configuration, listeners);
   }
 
@@ -1543,8 +1543,9 @@ public class Cluster implements Closeable {
       if (builder.rawHostContactPoints.size() > 0
           || builder.rawHostAndPortContactPoints.size() > 0
           || builder.contactPoints.size() > 0) {
-        throw new IllegalStateException(
-            "Can't use withCloudSecureConnectBundle if you've already called addContactPoint(s)");
+        builder.rawHostAndPortContactPoints.clear();
+        builder.rawHostContactPoints.clear();
+        builder.contactPoints.clear();
       }
       for (EndPoint endPoint : cloudConfig.getEndPoints()) {
         builder.addContactPoint(endPoint);
@@ -1699,6 +1700,7 @@ public class Cluster implements Closeable {
                         .withLoadBalancingPolicy(
                             new PagingOptimizingLoadBalancingPolicy(
                                 policies.getLoadBalancingPolicy()))
+                        .withEndPointFactory(policies.getEndPointFactory())
                         .withReconnectionPolicy(policies.getReconnectionPolicy())
                         .withRetryPolicy(policies.getRetryPolicy())
                         .withAddressTranslator(policies.getAddressTranslator())
